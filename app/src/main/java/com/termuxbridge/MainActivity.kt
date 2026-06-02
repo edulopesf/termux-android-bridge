@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -36,12 +37,30 @@ class MainActivity : ComponentActivity() {
         val logMessages = mutableStateListOf<String>()
         val serverRunning = mutableStateOf(false)
         val serverPort = mutableIntStateOf(8080)
+        val smsPermissionGranted = mutableStateOf(false)
 
         fun addLog(msg: String) {
             val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
             logMessages.add("[$ts] $msg")
         }
     }
+
+    // Permission result handler
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            addLog("Permission granted")
+            when (lastRequestedPermission) {
+                Manifest.permission.SEND_SMS -> smsPermissionGranted.value = true
+            }
+        } else {
+            addLog("Permission denied")
+        }
+        lastRequestedPermission = null
+    }
+
+    private var lastRequestedPermission: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,11 +123,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermission(perm: String) {
-        ActivityCompat.requestPermissions(
+        lastRequestedPermission = perm
+        permissionLauncher.launch(perm)
+    }
+
+    private fun checkSmsPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
             this,
-            arrayOf(perm),
-            1001
-        )
+            Manifest.permission.SEND_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh permission status when returning to app
+        smsPermissionGranted.value = checkSmsPermission()
     }
 
     override fun onDestroy() {
@@ -213,12 +242,38 @@ fun MainScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Permission status row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val smsStatusColor = if (MainActivity.smsPermissionGranted.value) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                val smsStatusText = if (MainActivity.smsPermissionGranted.value) "SMS: ✓" else "SMS: ✗"
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = smsStatusColor.copy(alpha = 0.2f))
+                ) {
+                    Text(
+                        smsStatusText,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        color = smsStatusColor,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 QuickActionButton("SMS", Icons.Default.Sms, Color(0xFF4CAF50)) {
-                    onRequestPermission(Manifest.permission.SEND_SMS)
+                    if (!MainActivity.smsPermissionGranted.value) {
+                        onRequestPermission(Manifest.permission.SEND_SMS)
+                    } else {
+                        addLog("SMS permission already granted")
+                    }
                 }
                 QuickActionButton("TTS", Icons.Default.VolumeUp, Color(0xFF2196F3)) {
                     onRequestPermission(Manifest.permission.TTS)

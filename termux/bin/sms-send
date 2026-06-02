@@ -1,0 +1,30 @@
+#!/bin/sh
+# Usage: sms-send "+3519..." "Message text"
+# Example: sms-send "+351912345678" "Hello from Termux Bridge!"
+
+PORT="${PORT:-8080}"
+HOST="${HOST:-127.0.0.1}"
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Usage: sms-send \"+3519...\" \"Message text\""
+    echo "  or:  PORT=8080 sms-send \"+3519...\" \"Message text\""
+    exit 1
+fi
+
+TO="$1"
+MESSAGE="$2"
+
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "http://${HOST}:${PORT}/sms/send" \
+    -H "Content-Type: application/json" \
+    -d "{\"to\": \"$TO\", \"message\": \"$MESSAGE\"}")
+
+BODY=$(echo "$RESPONSE" | sed '$d')
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+echo "$BODY"
+
+if [ "$HTTP_CODE" -eq 200 ]; then
+    exit 0
+else
+    exit 1
+fi

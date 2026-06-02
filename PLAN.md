@@ -31,18 +31,18 @@ App Android que funciona como ponte entre Termux e Android, usando **Termux:API*
 
 ## Funcionalidades e Ordem de Desenvolvimento
 
-| # | Funcionalidade | API Android | Termux API | Priority |
-|---|---|---|---|---|
-| 1 | Enviar SMS | `SmsManager` | `termux-sms` | 🔴 Alta |
-| 2 | Receber SMS | `BroadcastReceiver` | `termux-sms` | 🔴 Alta |
-| 3 | Notificações Push Nativas | `NotificationManager` | custom HTTP | 🔴 Alta |
-| 4 | Text-to-Speech (TTS) | `TextToSpeech` | custom HTTP | 🟡 Média |
-| 5 | Leitura de Clipboard | `ClipboardManager` | `termux-clipboard` | 🟢 Baixa |
-| 6 | Localização GPS | `LocationManager` | `termux-location` | 🟡 Média |
-| 7 | Câmera — Captura Foto | `CameraX` | `termux-camera` | 🟡 Média |
-| 8 | Microfone — Gravar Áudio | `MediaRecorder` | custom HTTP | 🟡 Média |
-| 9 | Reprodução de Áudio | `MediaPlayer` | custom HTTP | 🟢 Baixa |
-| 10 | Estado do Telemóvel | `BatteryManager`, `ConnectivityManager` | custom HTTP | 🟢 Baixa |
+| # | Funcionalidade | API Android | Termux API | Priority | Status |
+|---|---|---|---|---|---|
+| 1 | Enviar SMS | `SmsManager` | `termux-sms` | 🔴 Alta | ✅ Done |
+| 2 | Receber SMS | `BroadcastReceiver` | `termux-sms` | 🔴 Alta | ⏳ Pending |
+| 3 | Notificações Push Nativas | `NotificationManager` | custom HTTP | 🔴 Alta | ⏳ Pending |
+| 4 | Text-to-Speech (TTS) | `TextToSpeech` | custom HTTP | 🟡 Média | ⏳ Pending |
+| 5 | Leitura de Clipboard | `ClipboardManager` | `termux-clipboard` | 🟢 Baixa | ⏳ Pending |
+| 6 | Localização GPS | `LocationManager` | `termux-location` | 🟡 Média | ⏳ Pending |
+| 7 | Câmera — Captura Foto | `CameraX` | `termux-camera` | 🟡 Média | ⏳ Pending |
+| 8 | Microfone — Gravar Áudio | `MediaRecorder` | custom HTTP | 🟡 Média | ⏳ Pending |
+| 9 | Reprodução de Áudio | `MediaPlayer` | custom HTTP | 🟢 Baixa | ⏳ Pending |
+| 10 | Estado do Telemóvel | `BatteryManager`, `ConnectivityManager` | custom HTTP | 🟢 Baixa | ⏳ Pending |
 
 ---
 

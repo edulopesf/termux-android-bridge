@@ -130,6 +130,20 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
 
     private fun handleSmsSend(body: String): String {
         return try {
+            // Check SMS permission first
+            val ctx = android.app.ActivityThread.currentApplication().applicationContext
+            val hasPermission = ContextCompat.checkSelfPermission(
+                ctx,
+                Manifest.permission.SEND_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                return jsonResponse(
+                    JSONObject().put("error", "SEND_SMS permission not granted").toString(),
+                    403
+                )
+            }
+
             val json = JSONObject(body)
             val to = json.optString("to", "")
             val message = json.optString("message", "")
@@ -138,14 +152,24 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
                 return jsonResponse(JSONObject().put("error", "missing to or message").toString(), 400)
             }
 
-            val smsManager = android.app.ActivityThread.currentApplication()
-                .getSystemService(SmsManager::class.java)
+            val smsManager = ctx.getSystemService(SmsManager::class.java)
+                ?: return jsonResponse(JSONObject().put("error", "Device does not support SMS").toString(), 500)
 
+            // Handle multi-part SMS
             val parts = smsManager.divideMessage(message)
-            smsManager.sendTextMessage(to, null, parts[0], null, null)
+            if (parts.isEmpty()) {
+                return jsonResponse(JSONObject().put("error", "message is empty").toString(), 400)
+            }
 
-            onLog("SMS sent to $to")
-            jsonResponse(JSONObject().put("success", true).put("to", to).toString())
+            for (part in parts) {
+                smsManager.sendTextMessage(to, null, part, null, null)
+            }
+
+            onLog("SMS sent to $to (${parts.size} part${if (parts.size > 1) "s" else ""})")
+            jsonResponse(JSONObject().put("success", true).put("to", to).put("parts", parts.size).toString())
+        } catch (e: SecurityException) {
+            onLog("SMS ERROR: permission denied")
+            jsonResponse(JSONObject().put("error", "SEND_SMS permission denied").toString(), 403)
         } catch (e: Exception) {
             onLog("SMS ERROR: ${e.message}")
             jsonResponse(JSONObject().put("error", e.message).toString(), 500)
