@@ -1,5 +1,13 @@
 # Stage 1 — Enviar SMS (SMS Send)
 
+> **References:**
+> - [Android Developers — SmsManager](https://developer.android.com/reference/android/telephony/SmsManager)
+> - [Android Developers — Request runtime permissions](https://developer.android.com/training/permissions/requesting)
+> - [Android Developers — Understand permissions lifecycle](https://developer.android.com/training/permissions/managing)
+> - [OkHttp Documentation](https://square.github.io/okhttp/)
+> - [Android Developers — BroadcastReceiver](https://developer.android.com/reference/android/content/BroadcastReceiver)
+> - [Android Developers — PendingIntent](https://developer.android.com/reference/android/app/PendingIntent)
+
 ## Overview
 
 This document covers the SMS send functionality in the Termux Android Bridge app. The app exposes an HTTP endpoint (`POST /sms/send`) that Termux scripts call to send SMS messages via Android's `SmsManager` API.
@@ -12,6 +20,8 @@ This document covers the SMS send functionality in the Termux Android Bridge app
 ---
 
 ## Android Permission Flow
+
+> **Reference:** [Android Developers — Request runtime permissions](https://developer.android.com/training/permissions/requesting) | [One-time permissions (Android 12+)](https://developer.android.com/training/permissions/upgrading-permissions#one-time)
 
 ### Required Permissions
 
@@ -72,6 +82,8 @@ The current HTTP endpoint implementation (`HttpServer.kt`, line 149-151) catches
 ---
 
 ## SmsManager API
+
+> **Reference:** [Android Developers — SmsManager](https://developer.android.com/reference/android/telephony/SmsManager) | [Android Developers — divideMessage](https://developer.android.com/reference/android/telephony/SmsManager#divideMessage(java.lang.String))
 
 ### Class Reference
 
@@ -134,6 +146,8 @@ GSM encoding supports 160 chars single-part, 153 chars per part in multi-part.
 ---
 
 ## Delivery Confirmation
+
+> **Reference:** [Android Developers — BroadcastReceiver](https://developer.android.com/reference/android/content/BroadcastReceiver) | [Android Developers — PendingIntent](https://developer.android.com/reference/android/app/PendingIntent) | [Stack Overflow — SMS sent/delivered intents](https://stackoverflow.com/questions/40493730/sms-sent-delivered-intent-always-returns-result-ok)
 
 ### BroadcastReceiver Setup
 
@@ -199,6 +213,8 @@ This means:
 ---
 
 ## HTTP Endpoint Design
+
+> **Reference:** [OkHttp — Making HTTP requests](https://square.github.io/okhttp/) | [RFC 7159 — JSON message format](https://tools.ietf.org/html/rfc7159)
 
 ### Endpoint: POST /sms/send
 
@@ -279,6 +295,8 @@ Connection: close
 ---
 
 ## Edge Cases
+
+> **Reference:** [Android Developers — SecurityException](https://developer.android.com/reference/java/lang/SecurityException) | [GSM 03.38 — SMS Character Encoding](https://en.wikipedia.org/wiki/GSM_03.38)
 
 ### Empty Phone Number
 
@@ -387,6 +405,8 @@ if (telephonyManager?.serviceState?.state != TelephonyManager.SERVICE_STATE_NORM
 ---
 
 ## Security Considerations
+
+> **Reference:** [Android Developers — App security overview](https://developer.android.com/docs/security) | [Android Developers — Network security config](https://developer.android.com/docs/topics/security/security-config)
 
 ### localhost Only
 
@@ -578,11 +598,29 @@ private fun handleSmsSend(body: String): String {
 
 ## References
 
-- [Android SmsManager Documentation](https://developer.android.com/reference/android/telephony/SmsManager)
-- [Android SMS Permissions](https://developer.android.com/guide/topics/permissions/overview)
-- [OkHttp Library](https://square.github.io/okhttp/)
+### Official Documentation
+- [Android Developers — SmsManager](https://developer.android.com/reference/android/telephony/SmsManager)
+- [Android Developers — Request runtime permissions](https://developer.android.com/training/permissions/requesting)
+- [Android Developers — One-time permissions (Android 12+)](https://developer.android.com/training/permissions/upgrading-permissions#one-time)
+- [Android Developers — BroadcastReceiver](https://developer.android.com/reference/android/content/BroadcastReceiver)
+- [Android Developers — PendingIntent](https://developer.android.com/reference/android/app/PendingIntent)
+- [Android Developers — App security overview](https://developer.android.com/docs/security)
+
+### Libraries & Tools
+- [OkHttp Documentation](https://square.github.io/okhttp/)
 - [Jetpack Compose](https://developer.android.com/compose)
+- [Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html)
+
+### Community & Examples
+- [Stack Overflow — SMS sent/delivered intents](https://stackoverflow.com/questions/40493730/sms-sent-delivered-intent-always-returns-result-ok)
+- [Stack Overflow — Runtime permissions Android 12+](https://stackoverflow.com/questions/66797764/android-12-one-time-permission)
+- [GSM 03.38 — SMS Character Encoding](https://en.wikipedia.org/wiki/GSM_03.38)
+- [RFC 7159 — JSON message format](https://tools.ietf.org/html/rfc7159)
+
+### Related Project Files
 - [PLAN.md](../PLAN.md) — Project overview and stage progression
+- [HttpServer.kt](../../app/src/main/java/com/termuxbridge/HttpServer.kt) — SMS handler implementation
+- [MainActivity.kt](../../app/src/main/java/com/termuxbridge/MainActivity.kt) — Permission flow in UI
 
 ---
 
