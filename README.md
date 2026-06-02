@@ -13,9 +13,9 @@ Ponte entre Termux e Android — acesso a APIs nativas (SMS, TTS, Câmera, GPS, 
 
 | # | Funcionalidade | Status |
 |---|---|---|
-| 1 | Enviar SMS | 🔴 Pending |
-| 2 | Receber SMS | 🔴 Pending |
-| 3 | Notificações Push | 🔴 Pending |
+| 1 | Enviar SMS | 🟢 Done |
+| 2 | Receber SMS | 🟢 Done |
+| 3 | Notificações Push | 🟡 Pending |
 | 4 | Text-to-Speech (TTS) | 🟡 Pending |
 | 5 | Clipboard | 🟢 Pending |
 | 6 | GPS / Localização | 🟡 Pending |
