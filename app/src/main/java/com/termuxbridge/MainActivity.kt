@@ -276,7 +276,7 @@ fun MainScreen(
                     }
                 }
                 QuickActionButton("TTS", Icons.Default.VolumeUp, Color(0xFF2196F3)) {
-                    onRequestPermission(Manifest.permission.TTS)
+                    addLog("TTS ready — use /tts endpoint to speak")
                 }
                 QuickActionButton("GPS", Icons.Default.LocationOn, Color(0xFFFF9800)) {
                     onRequestPermission(Manifest.permission.ACCESS_FINE_LOCATION)

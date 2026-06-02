@@ -88,26 +88,35 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
 
     private suspend fun handleRequest(socket: java.net.Socket) {
         try {
-            val request = socket.getInputStream().bufferedReader().readLine() ?: return
+            val reader = socket.getInputStream().bufferedReader()
+            val request = reader.readLine() ?: return
             val method = request.split(" ")[0]
             val path = request.split(" ")[1]
 
             onLog("$method $path")
 
-            // Read headers
+            // Parse headers
             val headers = mutableMapOf<String, String>()
             var contentLength = 0
             var line: String?
-            while (socket.getInputStream().read().also { line = it.toChar().toString() } != '\n'.code) {
-                // read headers
+
+            while (reader.readLine().also { line = it } != null && line!!.isNotEmpty()) {
+                val colon = line!!.indexOf(':')
+                if (colon > 0) {
+                    val name = line!!.substring(0, colon).trim()
+                    val value = line!!.substring(colon + 1).trim()
+                    headers[name.lowercase()] = value
+                    if (name.lowercase() == "content-length") {
+                        contentLength = value.toIntOrNull() ?: 0
+                    }
+                }
             }
-            // Note: simplified header parsing above
 
             // Read body if present
             val body = if (contentLength > 0) {
-                val buf = ByteArray(contentLength)
-                socket.getInputStream().read(buf)
-                String(buf)
+                val buf = CharArray(contentLength)
+                val read = reader.read(buf)
+                String(buf, 0, read)
             } else ""
 
             val response = when {
@@ -178,16 +187,33 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
 
     private fun handleNotification(body: String): String {
         return try {
+            if (body.isEmpty()) {
+                return jsonResponse(JSONObject().put("error", "missing notification body").toString(), 400)
+            }
+
             val json = JSONObject(body)
             val title = json.optString("title", "Alert")
             val bodyText = json.optString("body", "")
             val priority = json.optInt("priority", 0)
             val channel = json.optString("channel", "alerts")
 
-            val notification = NotificationCompat.Builder(
-                android.app.ActivityThread.currentApplication().applicationContext,
-                channel
-            )
+            // Validate channel
+            val validChannels = setOf("alerts", "info", "silent")
+            val safeChannel = if (channel in validChannels) channel else "info"
+
+            val ctx = android.app.ActivityThread.currentApplication().applicationContext
+
+            // Check notification permission on Android 13+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    ctx, Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!hasPermission) {
+                    return jsonResponse(JSONObject().put("error", "POST_NOTIFICATIONS permission not granted").toString(), 403)
+                }
+            }
+
+            val notification = NotificationCompat.Builder(ctx, safeChannel)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(title)
                 .setContentText(bodyText)
@@ -195,14 +221,14 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
                 .setAutoCancel(true)
                 .build()
 
-            val nm = ContextCompat.getSystemService<NotificationManager>(
-                android.app.ActivityThread.currentApplication().applicationContext,
-                NotificationManager::class.java
-            )!!
+            val nm = ContextCompat.getSystemService<NotificationManager>(ctx, NotificationManager::class.java)!!
             nm.notify(System.currentTimeMillis().toInt(), notification)
 
-            onLog("Notification: $title")
-            jsonResponse(JSONObject().put("success", true).toString())
+            onLog("Notification: $title [$safeChannel]")
+            jsonResponse(JSONObject().put("success", true).put("channel", safeChannel).toString())
+        } catch (e: SecurityException) {
+            onLog("Notification ERROR: permission denied")
+            jsonResponse(JSONObject().put("error", "POST_NOTIFICATIONS permission denied").toString(), 403)
         } catch (e: Exception) {
             onLog("Notification ERROR: ${e.message}")
             jsonResponse(JSONObject().put("error", e.message).toString(), 500)
@@ -215,6 +241,10 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
                 return jsonResponse(JSONObject().put("error", "TTS not ready").toString(), 503)
             }
 
+            if (body.isEmpty()) {
+                return jsonResponse(JSONObject().put("error", "missing text").toString(), 400)
+            }
+
             val json = JSONObject(body)
             val text = json.optString("text", "")
             val lang = json.optString("lang", "pt-PT")
@@ -224,12 +254,21 @@ class HttpServer(private val port: Int, private val onLog: (String) -> Unit) {
                 return jsonResponse(JSONObject().put("error", "missing text").toString(), 400)
             }
 
-            tts?.setLanguage(Locale(lang))
-            tts?.setSpeechRate(rate.toFloat())
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "utterance_${System.currentTimeMillis()}")
+            val langResult = tts?.setLanguage(Locale.forLanguageTag(lang))
+            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                return jsonResponse(JSONObject().put("error", "language '$lang' not supported").toString(), 400)
+            }
 
-            onLog("TTS: $text")
-            jsonResponse(JSONObject().put("success", true).put("text", text).toString())
+            tts?.setSpeechRate(rate.toFloat())
+            val utteranceId = "utterance_${System.currentTimeMillis()}"
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+
+            onLog("TTS: [$lang] $text")
+            jsonResponse(JSONObject().put("success", true)
+                .put("text", text)
+                .put("lang", lang)
+                .put("rate", rate)
+                .toString())
         } catch (e: Exception) {
             onLog("TTS ERROR: ${e.message}")
             jsonResponse(JSONObject().put("error", e.message).toString(), 500)

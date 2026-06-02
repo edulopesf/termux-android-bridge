@@ -7,15 +7,8 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
 
-    <!-- Notifications -->
+    <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- TTS -->
-    <uses-permission android:name="android.permission.TTS" />
-
-    <!-- Clipboard -->
-    <uses-permission android:name="android.permission.READ_CLIPBOARD" />
-    <uses-permission android:name="android.permission.WRITE_CLIPBOARD" />
 
     <!-- Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -33,7 +26,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Internet (for local server) -->
+    <!-- Internet (local server) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
