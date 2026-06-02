@@ -1,47 +1,71 @@
 #!/usr/bin/env python3
 """
-sms-listend — Webhook receiver for incoming SMS forwarded from Android.
+sms-listend — Termux webhook receiver for incoming SMS forwarded from Android.
 
-Receives HTTP POST from the SmsReceiver BroadcastReceiver on Android,
-parses the JSON payload, and processes/displays the incoming SMS.
+Listens on 127.0.0.1:9000 and receives HTTP POST from the Termux Bridge Android app
+when an SMS arrives on the device. Forwards the SMS data to any registered handlers
+(bot notification, logging, etc.).
 
 Usage:
-    python3 sms-listend                    # Run directly
-    python3 sms-listend &                  # Run in background
-    nohup python3 sms-listend &            # Run with output suppression
+    python3 termux/bin/sms-listend
 
-Port: 9000 (hardcoded — must match SmsReceiver.termuxWebhookUrl in Android)
+Runs on boot via ~/.bashrc or Termux Boot:
+    python3 ~/termux-android-bridge/termux/bin/sms-listend &
 """
 
 import json
-import os
-import sys
 import signal
+import sys
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from datetime import datetime
 
-# Configuration
 PORT = 9000
 HOST = "127.0.0.1"
 
-# Global flag for graceful shutdown
-running = True
+# Handlers registry — add your own handlers here
+# Each handler receives: (from_number: str, body: str, timestamp: int, parts: int)
+_handlers = []
+_lock = threading.Lock()
+
+
+def register_handler(handler):
+    """Register a handler to be called on each incoming SMS."""
+    with _lock:
+        _handlers.append(handler)
+
+
+def unregister_handler(handler):
+    """Remove a handler."""
+    with _lock:
+        if handler in _handlers:
+            _handlers.remove(handler)
+
+
+def _dispatch_sms(from_num: str, body: str, timestamp: int, parts: int):
+    """Dispatch SMS to all registered handlers."""
+    handlers = _handlers.copy()
+    for handler in handlers:
+        try:
+            handler(from_num, body, timestamp, parts)
+        except Exception as e:
+            print(f"[ERROR] Handler {handler.__name__} failed: {e}", file=sys.stderr)
 
 
 class SmsWebhookHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for SMS webhook events."""
+    """HTTP request handler for incoming SMS webhooks from Android."""
 
+    # Suppress HTTP request logging
     def log_message(self, format, *args):
-        """Suppress default HTTP logging — we use our own print-based logging."""
         pass
 
     def do_POST(self):
-        """Handle POST /webhook/sms — receive SMS from Android."""
+        """Handle POST /webhook/sms."""
         if self.path != "/webhook/sms":
             self.send_error(404, "Not Found")
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
+        content_length = int(self.headers.get("Content-Length", "0"))
         if content_length == 0:
             self.send_error(400, "Empty body")
             return
@@ -54,90 +78,105 @@ class SmsWebhookHandler(BaseHTTPRequestHandler):
             self.send_error(400, f"Invalid JSON: {e}")
             return
 
-        # Extract SMS fields
-        sms_from = data.get("from", "unknown")
-        sms_body = data.get("body", "")
-        sms_timestamp = data.get("timestamp", 0)
-        sms_device = data.get("device", "unknown")
-        sms_parts = data.get("parts", 1)
+        # Extract fields
+        from_num = data.get("from", "unknown")
+        body_text = data.get("body", "")
+        timestamp = data.get("timestamp", 0)
+        parts = data.get("parts", 1)
+        device = data.get("device", "unknown")
 
-        # Human-readable timestamp
-        import time
-        ts_readable = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(sms_timestamp / 1000)) if sms_timestamp else "unknown"
+        if not body_text:
+            self.send_error(400, "Missing 'body' field")
+            return
 
-        # Print to terminal (visible when running interactively)
-        print(f"\n{'='*50}")
-        print(f"[SMS RECEIVED]")
-        print(f"  From:    {sms_from}")
-        print(f"  Time:    {ts_readable}")
-        print(f"  Parts:   {sms_parts}")
-        print(f"  Body:    {sms_body[:80]}{'...' if len(sms_body) > 80 else ''}")
-        print(f"  Device:  {sms_device}")
-        print(f"{'='*50}\n", end="")
+        # Log to console
+        ts_str = datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S") if timestamp else "unknown"
+        print(f"[SMS] from={from_num} ts={ts_str} parts={parts}")
+        print(f"      body={body_text[:60]}{'...' if len(body_text) > 60 else ''}")
 
-        # TODO: integrate with your bot/notification system here
-        # Example ideas:
-        #   - forward to Telegram bot
-        #   - send push notification
-        #   - write to SQLite log
-        #   - trigger automation scripts
+        # Dispatch to handlers in background thread
+        thread = threading.Thread(
+            target=_dispatch_sms,
+            args=(from_num, body_text, timestamp, parts),
+            daemon=True
+        )
+        thread.start()
 
-        # Respond with 200 OK
+        # Respond immediately — don't wait for handlers
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        response = json.dumps({"received": True, "from": sms_from}).encode("utf-8")
-        self.wfile.write(response)
+        response = json.dumps({"received": True, "from": from_num, "parts": parts})
+        self.wfile.write(response.encode("utf-8"))
 
     def do_GET(self):
-        """Handle GET /health — server health check."""
+        """Health check endpoint."""
         if self.path == "/health":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            response = json.dumps({"status": "ok", "port": PORT, "service": "sms-listend"}).encode("utf-8")
-            self.wfile.write(response)
+            response = json.dumps({"status": "ok", "port": PORT, "service": "sms-listend"})
+            self.wfile.write(response.encode("utf-8"))
         else:
             self.send_error(404, "Not Found")
 
-    def do_HEAD(self):
-        """Handle HEAD /health — no body."""
-        if self.path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-        else:
-            self.send_error(404, "Not Found")
+    def do_HEALTH(self):
+        """Alias for /health (HTTP method override in some clients)."""
+        self.do_GET()
 
 
-def shutdown_handler(signum, frame):
-    """Handle SIGINT/SIGTERM for graceful shutdown."""
-    global running
-    print("\n[sms-listend] Shutting down...")
-    running = False
+class HealthHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "ok", "port": PORT}).encode())
+
+
+# Default handler — prints SMS to console
+def _console_handler(from_num: str, body: str, timestamp: int, parts: int):
+    ts_str = datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S") if timestamp else "?"
+    print(f"\n{'='*50}")
+    print(f"  INCOMING SMS")
+    print(f"{'='*50}")
+    print(f"  From:    {from_num}")
+    print(f"  Time:    {ts_str}")
+    print(f"  Parts:   {parts}")
+    print(f"  Message: {body}")
+    print(f"{'='*50}\n")
+
+
+# Register default console handler
+register_handler(_console_handler)
+
+
+def _shutdown_handler(signum, frame):
+    print("\n[SHUTDOWN] sms-listend stopping...")
     sys.exit(0)
 
 
-def main():
+def run_server():
     """Start the webhook server."""
-    global running
+    signal.signal(signal.SIGINT, _shutdown_handler)
+    signal.signal(signal.SIGTERM, _shutdown_handler)
 
-    # Register signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, shutdown_handler)
-    signal.signal(signal.SIGTERM, shutdown_handler)
+    server = HTTPServer((HOST, PORT), SmsWebhookHandler)
+    print(f"Webhook receiver listening on {HOST}:{PORT}")
+    print(f"POST http://{HOST}:{PORT}/webhook/sms  — forward SMS from Android")
+    print(f"GET  http://{HOST}:{PORT}/health        — health check")
+    print(f"\nCtrl+C to stop\n")
 
-    server_address = (HOST, PORT)
-    httpd = HTTPServer(server_address, SmsWebhookHandler)
-
-    print(f"[sms-listend] Webhook receiver listening on http://{HOST}:{PORT}")
-    print(f"[sms-listend] POST /webhook/sms — receives SMS from Android")
-    print(f"[sms-listend] GET  /health       — health check")
-    print(f"[sms-listend] Press Ctrl+C to stop")
-    print()
-
-    while running:
-        httpd.handle_request()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
+        print("[STOPPED] sms-listend")
 
 
 if __name__ == "__main__":
-    main()
+    run_server()

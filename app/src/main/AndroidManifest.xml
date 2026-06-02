@@ -4,9 +4,9 @@
 
     <!-- SMS: Send -->
     <uses-permission android:name="android.permission.SEND_SMS" />
-    <!-- SMS: Receive (Stage 2) -->
+    <!-- SMS: Receive (Stage 2) — required on Android 14+ -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <!-- SMS: Read (deprecated on Android 14+, needed for pre-14) -->
+    <!-- SMS: Read (deprecated on Android 14+, needed for pre-Android 14) -->
     <uses-permission android:name="android.permission.READ_SMS" />
 
     <!-- Notifications (Android 13+) -->
@@ -51,19 +51,34 @@
             </intent-filter>
         </activity>
 
-        <!-- SMS Receiver (Stage 2) -->
         <!--
-            On Android 14+ (UPSIDE_DOWN_CAKE), SMS_DELIVER requires this app
-            to be the default SMS app. The receiver has highest priority (2147483647)
-            to intercept before other apps.
+            SMS BroadcastReceiver — Stage 2
+            On Android 14+, SMS_DELIVER requires the app to be the default SMS app.
+            On pre-Android 14, SMS_RECEIVED is used.
+            Highest priority (2147483647) ensures we intercept before other apps.
         -->
         <receiver
             android:name=".SmsReceiver"
             android:exported="true"
-            android:enabled="true"
-            android:permission="android.permission.BROADCAST_SMS">
+            android:enabled="true">
             <intent-filter android:priority="2147483647">
+                <!-- Android 14+ default SMS app -->
                 <action android:name="android.provider.Telephony.SMS_DELIVER" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            Fallback receiver for pre-Android 14 devices.
+            Uses SMS_RECEIVED which does not require default SMS app status.
+            Separate receiver block required — cannot combine actions from different API levels.
+        -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="2147483647">
+                <!-- Pre-Android 14 -->
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
 

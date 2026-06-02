@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
         val serverRunning = mutableStateOf(false)
         val serverPort = mutableIntStateOf(8080)
         val smsPermissionGranted = mutableStateOf(false)
+        val smsReceivePermissionGranted = mutableStateOf(false)
 
         fun addLog(msg: String) {
             val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
             addLog("Permission granted")
             when (lastRequestedPermission) {
                 Manifest.permission.SEND_SMS -> smsPermissionGranted.value = true
+                Manifest.permission.RECEIVE_SMS -> smsReceivePermissionGranted.value = true
             }
         } else {
             addLog("Permission denied")
@@ -134,10 +136,18 @@ class MainActivity : ComponentActivity() {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun checkReceiveSmsPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECEIVE_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     override fun onResume() {
         super.onResume()
         // Refresh permission status when returning to app
         smsPermissionGranted.value = checkSmsPermission()
+        smsReceivePermissionGranted.value = checkReceiveSmsPermission()
     }
 
     override fun onDestroy() {
@@ -247,16 +257,30 @@ fun MainScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val smsStatusColor = if (MainActivity.smsPermissionGranted.value) Color(0xFF4CAF50) else Color(0xFFFF5252)
-                val smsStatusText = if (MainActivity.smsPermissionGranted.value) "SMS: ✓" else "SMS: ✗"
+                val smsSendColor = if (MainActivity.smsPermissionGranted.value) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                val smsSendText = if (MainActivity.smsPermissionGranted.value) "SMS SEND: ✓" else "SMS SEND: ✗"
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = smsStatusColor.copy(alpha = 0.2f))
+                    colors = CardDefaults.cardColors(containerColor = smsSendColor.copy(alpha = 0.2f))
                 ) {
                     Text(
-                        smsStatusText,
+                        smsSendText,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 10.sp,
-                        color = smsStatusColor,
+                        color = smsSendColor,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+
+                val smsRecvColor = if (MainActivity.smsReceivePermissionGranted.value) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                val smsRecvText = if (MainActivity.smsReceivePermissionGranted.value) "SMS RECV: ✓" else "SMS RECV: ✗"
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = smsRecvColor.copy(alpha = 0.2f))
+                ) {
+                    Text(
+                        smsRecvText,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        color = smsRecvColor,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
@@ -269,10 +293,13 @@ fun MainScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 QuickActionButton("SMS", Icons.Default.Sms, Color(0xFF4CAF50)) {
-                    if (!MainActivity.smsPermissionGranted.value) {
-                        onRequestPermission(Manifest.permission.SEND_SMS)
+                    val sendGranted = MainActivity.smsPermissionGranted.value
+                    val recvGranted = MainActivity.smsReceivePermissionGranted.value
+                    if (!sendGranted || !recvGranted) {
+                        if (!sendGranted) onRequestPermission(Manifest.permission.SEND_SMS)
+                        else if (!recvGranted) onRequestPermission(Manifest.permission.RECEIVE_SMS)
                     } else {
-                        addLog("SMS permission already granted")
+                        addLog("SMS permissions OK")
                     }
                 }
                 QuickActionButton("TTS", Icons.Default.VolumeUp, Color(0xFF2196F3)) {
