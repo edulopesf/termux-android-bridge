@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""
+sms-listend — Webhook receiver for incoming SMS forwarded from Android.
+
+Receives HTTP POST from the SmsReceiver BroadcastReceiver on Android,
+parses the JSON payload, and processes/displays the incoming SMS.
+
+Usage:
+    python3 sms-listend                    # Run directly
+    python3 sms-listend &                  # Run in background
+    nohup python3 sms-listend &            # Run with output suppression
+
+Port: 9000 (hardcoded — must match SmsReceiver.termuxWebhookUrl in Android)
+"""
+
+import json
+import os
+import sys
+import signal
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Configuration
+PORT = 9000
+HOST = "127.0.0.1"
+
+# Global flag for graceful shutdown
+running = True
+
+
+class SmsWebhookHandler(BaseHTTPRequestHandler):
+    """HTTP request handler for SMS webhook events."""
+
+    def log_message(self, format, *args):
+        """Suppress default HTTP logging — we use our own print-based logging."""
+        pass
+
+    def do_POST(self):
+        """Handle POST /webhook/sms — receive SMS from Android."""
+        if self.path != "/webhook/sms":
+            self.send_error(404, "Not Found")
+            return
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length == 0:
+            self.send_error(400, "Empty body")
+            return
+
+        body = self.rfile.read(content_length)
+
+        try:
+            data = json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError as e:
+            self.send_error(400, f"Invalid JSON: {e}")
+            return
+
+        # Extract SMS fields
+        sms_from = data.get("from", "unknown")
+        sms_body = data.get("body", "")
+        sms_timestamp = data.get("timestamp", 0)
+        sms_device = data.get("device", "unknown")
+        sms_parts = data.get("parts", 1)
+
+        # Human-readable timestamp
+        import time
+        ts_readable = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(sms_timestamp / 1000)) if sms_timestamp else "unknown"
+
+        # Print to terminal (visible when running interactively)
+        print(f"\n{'='*50}")
+        print(f"[SMS RECEIVED]")
+        print(f"  From:    {sms_from}")
+        print(f"  Time:    {ts_readable}")
+        print(f"  Parts:   {sms_parts}")
+        print(f"  Body:    {sms_body[:80]}{'...' if len(sms_body) > 80 else ''}")
+        print(f"  Device:  {sms_device}")
+        print(f"{'='*50}\n", end="")
+
+        # TODO: integrate with your bot/notification system here
+        # Example ideas:
+        #   - forward to Telegram bot
+        #   - send push notification
+        #   - write to SQLite log
+        #   - trigger automation scripts
+
+        # Respond with 200 OK
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        response = json.dumps({"received": True, "from": sms_from}).encode("utf-8")
+        self.wfile.write(response)
+
+    def do_GET(self):
+        """Handle GET /health — server health check."""
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            response = json.dumps({"status": "ok", "port": PORT, "service": "sms-listend"}).encode("utf-8")
+            self.wfile.write(response)
+        else:
+            self.send_error(404, "Not Found")
+
+    def do_HEAD(self):
+        """Handle HEAD /health — no body."""
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+        else:
+            self.send_error(404, "Not Found")
+
+
+def shutdown_handler(signum, frame):
+    """Handle SIGINT/SIGTERM for graceful shutdown."""
+    global running
+    print("\n[sms-listend] Shutting down...")
+    running = False
+    sys.exit(0)
+
+
+def main():
+    """Start the webhook server."""
+    global running
+
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+
+    server_address = (HOST, PORT)
+    httpd = HTTPServer(server_address, SmsWebhookHandler)
+
+    print(f"[sms-listend] Webhook receiver listening on http://{HOST}:{PORT}")
+    print(f"[sms-listend] POST /webhook/sms — receives SMS from Android")
+    print(f"[sms-listend] GET  /health       — health check")
+    print(f"[sms-listend] Press Ctrl+C to stop")
+    print()
+
+    while running:
+        httpd.handle_request()
+
+
+if __name__ == "__main__":
+    main()

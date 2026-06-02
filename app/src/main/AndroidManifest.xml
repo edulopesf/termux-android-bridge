@@ -2,9 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- SMS -->
+    <!-- SMS: Send -->
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <!-- SMS: Receive (Stage 2) -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- SMS: Read (deprecated on Android 14+, needed for pre-14) -->
     <uses-permission android:name="android.permission.READ_SMS" />
 
     <!-- Notifications (Android 13+) -->
@@ -48,6 +50,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- SMS Receiver (Stage 2) -->
+        <!--
+            On Android 14+ (UPSIDE_DOWN_CAKE), SMS_DELIVER requires this app
+            to be the default SMS app. The receiver has highest priority (2147483647)
+            to intercept before other apps.
+        -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:enabled="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="2147483647">
+                <action android:name="android.provider.Telephony.SMS_DELIVER" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

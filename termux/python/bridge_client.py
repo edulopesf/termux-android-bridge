@@ -215,3 +215,35 @@ class TermuxBridge:
             requests.HTTPError: If server returns error status code
         """
         return self._get("/health")
+
+    # -------------------------------------------------------------------------
+    # SMS Listen (incoming SMS from Android webhook)
+    # -------------------------------------------------------------------------
+
+    def sms_forward(self, from_num: str, body: str, timestamp: int = 0, parts: int = 1) -> Dict[str, Any]:
+        """
+        [Termux side] POST to Termux webhook endpoint to report an SMS
+        that was received by the Android app. This is called BY the Android
+        SmsReceiver, not by Termux scripts. Included here for reference parity.
+
+        This method is mainly for the sms-listend server, not for direct use.
+        Use the sms-listend Python script instead.
+
+        Args:
+            from_num: Sender phone number
+            body: Message text
+            timestamp: Unix timestamp in milliseconds (default: 0)
+            parts: Number of SMS parts (default: 1)
+
+        Returns:
+            dict with keys:
+                - received (bool): True if webhook accepted
+                - from (str): Sender number
+        """
+        return self._post("/webhook/sms", {
+            "from": from_num,
+            "body": body,
+            "timestamp": timestamp,
+            "device": "TermuxBridge/0.1.0",
+            "parts": parts
+        })
