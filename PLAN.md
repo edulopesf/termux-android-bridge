@@ -385,11 +385,30 @@ Termux: GET /phone_state → {battery_level: 85, charging: true, network: "wifi"
 > **Cada etapa é testada e verificada antes de avançar para a próxima.**
 
 ### Ciclo por Etapa
-1. Agente Research escreve documentação da etapa
-2. Agente Dev escreve código Kotlin + Python
-3. Teste manual no dispositivo
-4. Commit da etapa ao repositório
-5. Só depois avançar para próxima etapa
+1. Agente Research escreve documentação da etapa em `docs/stage-N-<name>.md`
+2. Agente Dev implementa código Kotlin + Python
+3. **Documentação inclui links de referência** (documentação oficial Android, libraries, exemplos da comunidade, tutorials)
+4. Teste manual no dispositivo
+5. Commit da etapa ao repositório
+6. Só depois avançar para próxima etapa
+
+### Standard de Documentação de Referência
+
+Cada documento de etapa **deve incluir** na secção References:
+
+- **Official Documentation** — links para Android Developers, bibliotecas oficiais
+- **Libraries & Tools** — documentação das libraries usadas (OkHttp, CameraX, etc.)
+- **Community & Examples** — Stack Overflow, tutorials, GitHub samples relevantes
+- **Related Project Files** — links para outros ficheiros do projeto (PLAN.md, handlers, etc.)
+
+Cada secção principal do documento deve ter um inline reference block:
+```markdown
+> **Reference:** [Link text](url) | [Link text](url)
+```
+
+---
+
+## Referências Externas Úteis
 
 ---
 
@@ -445,10 +464,51 @@ jobs:
 
 ---
 
+## Referências Externas Úteis
+
+### Android Development
+- [Android Developers — Permissions overview](https://developer.android.com/training/permissions/overview)
+- [Android Developers — Request runtime permissions](https://developer.android.com/training/permissions/requesting)
+- [Android Developers — Permissions on Android 12+](https://developer.android.com/training/permissions/upgrading-permissions)
+- [Android Developers — Jetpack Compose](https://developer.android.com/compose)
+- [Android Developers — Coroutines](https://developer.android.com/kotlin/coroutines)
+
+### Specific Android APIs
+- [SmsManager](https://developer.android.com/reference/android/telephony/SmsManager)
+- [TextToSpeech](https://developer.android.com/reference/android/speech/tts/TextToSpeech)
+- [NotificationManager](https://developer.android.com/reference/android/app/NotificationManager)
+- [LocationManager](https://developer.android.com/reference/android/location/LocationManager)
+- [CameraX](https://developer.android.com/training/camerax)
+- [MediaRecorder](https://developer.android.com/reference/android/media/MediaRecorder)
+- [MediaPlayer](https://developer.android.com/reference/android/media/MediaPlayer)
+- [ClipboardManager](https://developer.android.com/reference/android/content/ClipboardManager)
+- [BatteryManager](https://developer.android.com/reference/android/os/BatteryManager)
+- [BroadcastReceiver](https://developer.android.com/reference/android/content/BroadcastReceiver)
+- [PendingIntent](https://developer.android.com/reference/android/app/PendingIntent)
+
+### Networking & HTTP
+- [OkHttp Documentation](https://square.github.io/okhttp/)
+- [Retrofit — type-safe HTTP client](https://square.github.io/retrofit/) *(optional, not currently used)*
+- [Kotlin Coroutines — async HTTP](https://kotlinlang.org/docs/coroutines-overview.html)
+
+### Libraries Used in Project
+- [OkHttp — HTTP client](https://square.github.io/okhttp/)
+- [Jetpack Compose — UI toolkit](https://developer.android.com/compose)
+- [Material 3 — Design system](https://m3.material.io/)
+
+### Community & Troubleshooting
+- [Stack Overflow — Android permissions](https://stackoverflow.com/questions/tagged/android-permissions)
+- [Stack Overflow — BroadcastReceiver](https://stackoverflow.com/questions/tagged/broadcastreceiver)
+- [Android Issue Tracker](https://issuetracker.google.com/)
+
+### Tools & Environment
+- [Android Studio](https://developer.android.com/studio)
+- [Android Developers — Build overview](https://developer.android.com/build)
+- [Gradle — Build tool](https://gradle.org/)
+- [GitHub Actions — CI/CD](https://docs.github.com/en/actions)
+
+---
+
 ## Próximo Passo
 
-**ETAPA 1 — Enviar SMS**
-- Documentação completa
-- Código Kotlin
-- Scripts Termux
-- Teste funcional
+**ETAPA 1 — Enviar SMS** ✅ Concluída
